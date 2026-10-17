@@ -310,7 +310,7 @@ async function initializeHSKAccounts(){
     if(error)throw error;
     if(account.recovery){switchToAuth('reset');return}
     if(data?.session?.user)await enterSignedIn(data.session.user);
-    else switchToAuth('login');
+    else {const view=new URLSearchParams(location.search).get('view');switchToAuth(view==='signup'?'signup':'login');}
   }catch(err){switchToAuth('login');authMessage(err.message||'Cannot reach the account service.',true)}
 }
 initializeHSKAccounts();
