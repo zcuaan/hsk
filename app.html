@@ -92,7 +92,7 @@ function syncHeader(){ const levelButton=$('level-button');if(levelButton)levelB
 async function bootstrap(){if(!window.hskAccountUser)return;loadSaved();try{
  if(!window.supabase)throw Error('Supabase SDK unavailable');const db=window.hskClient;if(!db)throw Error('Please sign in first');
  const req=await Promise.all([
- db.from('hsk_vocabulary').select('id,simplified,pinyin,meaning').order('id'),
+ db.from('hsk_vocabulary').select('id,simplified,pinyin,meaning,part_of_speech').order('id'),
  db.from('hsk_lessons').select('id,sequence,title,status,level').in('level',[1,2]).order('sequence'),
  db.from('hsk_lesson_vocabulary').select('lesson_id,vocabulary_id,position'),
   db.from('hsk_level_vocabulary').select('level,vocabulary_id').in('level',[1,2]),
@@ -128,7 +128,35 @@ function typesFor(w){const choices=TYPES.filter(t=>t!=='tone'||([...w.simplified
  const ambiguous=state.words.filter(x=>x.simplified===w.simplified).length>1;
  // Homographs without a sentence context cannot be meaning- or audio-graded fairly.
  return ambiguous?choices.filter(t=>['recognition','from_pinyin'].includes(t)):choices}
-function buildOptions(w,type){const getText=x=>type==='meaning'||type==='listening_meaning'?primaryMeaning(x):type==='pinyin'?x.pinyin:x.simplified;const correct=getText(w);const pool=shuffle(state.words.filter(x=>x.id!==w.id&&x.simplified!==w.simplified&&!x.simplified.includes(' ')&&getText(x).toLowerCase()!==correct.toLowerCase()));const options=[correct];for(const other of pool){const answer=getText(other);if(!options.some(x=>x.toLowerCase()===answer.toLowerCase()))options.push(answer);if(options.length===4)break}return shuffle(options).map(s=>({text:s,correct:s===correct}))}
+function buildOptions(w,type){
+ const english=type==='meaning'||type==='listening_meaning';
+ const getText=x=>english?primaryMeaning(x):type==='pinyin'?x.pinyin:x.simplified;
+ const correct=getText(w), targetLen=[...w.simplified].length, correctWords=correct.trim().split(/\s+/).length;
+ const roleTags=x=>String(x.part_of_speech||'').match(/[名动形副介代助量连数]/g)||[];
+ const targetRoles=roleTags(w), targetChars=new Set([...w.simplified]);
+ // Prefer distractors of the same Chinese word length, grammatical class and similar shape.
+ // A three-character answer should not stand out among three single-character choices.
+ const candidates=shuffle(state.words.filter(x=>
+  x.id!==w.id && x.simplified!==w.simplified &&
+  getText(x).toLowerCase()!==correct.toLowerCase()
+ )).map(x=>{
+  const answer=getText(x), lengthGap=Math.abs([...x.simplified].length-targetLen);
+  let score=lengthGap===0?120:lengthGap===1?30:-20*lengthGap;
+  if(targetRoles.some(tag=>roleTags(x).includes(tag)))score+=20;
+  if([...x.simplified].some(ch=>targetChars.has(ch)))score+=18;
+  if(english)score+=Math.max(0,14-6*Math.abs(answer.trim().split(/\s+/).length-correctWords));
+  if(type==='pinyin')score+=Math.max(0,12-2*Math.abs(answer.length-correct.length));
+  return {answer,score};
+ }).sort((a,b)=>b.score-a.score);
+ const options=[correct],used=new Set([correct.toLowerCase()]);
+ for(const choice of candidates){
+  const key=choice.answer.toLowerCase();
+  if(used.has(key))continue;
+  used.add(key);options.push(choice.answer);
+  if(options.length===4)break;
+ }
+ return shuffle(options).map(text=>({text,correct:text===correct}));
+}
 function startPractice(lessonId=null){if(!state.loaded)return;const lesson=state.lessons.find(x=>Number(x.id)===Number(lessonId));const pool=lesson?wordsInLesson(lesson):state.words;const words=choosePracticeWords(pool,Math.min(10,pool.length));const typeOrder=shuffle(TYPES);const questions=words.map((w,i)=>{const allowed=typesFor(w);let t=typeOrder[i%typeOrder.length];if(!allowed.includes(t))t=sample(allowed);return {word:w,type:t,options:t==='typed_pinyin'||t==='tone'?null:buildOptions(w,t),answered:false}});state.quiz={questions,index:0,correct:0,wrong:0,unknown:0,lessonId};state.route='practice';renderQuestion()}
 function renderQuestion(){const session=state.quiz;if(!session)return go('home');if(session.index>=session.questions.length)return renderResults();const q=session.questions[session.index],w=q.word;const prompts={meaning:'Which option best matches:',recognition:'Choose the Chinese characters for:',pinyin:'Choose the correct Pinyin:',from_pinyin:'Which word matches this Pinyin?',listening:'Listen and choose the characters:',listening_meaning:'Listen and choose the meaning:',typed_pinyin:'Type the correct Pinyin:',tone:'Which tone does this character use?'};
  let target='';switch(q.type){case 'meaning':case 'pinyin':case 'typed_pinyin':case 'tone':target=`<div class="hanzi">${escapeHTML(w.simplified)}</div>${q.type==='tone'?`<button class="audio-button" onclick="playAudio(${w.id})">🔊</button>`:''}`;break;case 'recognition':target=`<div class="latin">${escapeHTML(primaryMeaning(w))}</div>`;break;case 'from_pinyin':target=`<div class="latin">${escapeHTML(w.pinyin)}</div>`;break;default:target=`<button class="audio-button" onclick="playAudio(${w.id})" aria-label="Play Chinese word">🔊</button><div class="subtitle">Tap to listen</div>`}
@@ -139,7 +167,7 @@ function renderQuestion(){const session=state.quiz;if(!session)return go('home')
 function answerOption(index){const q=state.quiz?.questions[state.quiz.index];if(!q||q.answered)return;recordAnswer(q.options[index].correct?'correct':'wrong')}
 function answerTone(t){const q=state.quiz?.questions[state.quiz.index];if(!q||q.answered)return;recordAnswer(t===toneOf(q.word.pinyin)?'correct':'wrong')}
 const ACCENTS={a:['ā','á','ǎ','à'],e:['ē','é','ě','è'],i:['ī','í','ǐ','ì'],o:['ō','ó','ǒ','ò'],u:['ū','ú','ǔ','ù'],ü:['ǖ','ǘ','ǚ','ǜ']};
-function pinyinKeyboard(){const v=state.selectedVowel;return `<label>Need a tone mark? Select a vowel</label><div class="vowel-buttons">${Object.keys(ACCENTS).map(a=>`<button class="${a===v?'chosen':''}" onclick="selectVowel('${a}')" type="button" aria-label="Vowel ${a}">${a}</button>`).join('')}</div><div class="accent-buttons">${ACCENTS[v].map((a,i)=>`<button onclick="insertAccent('${a}','${v}')" type="button" aria-label="Insert tone ${i+1} ${a}">${a}</button>`).join('')}</div><div class="keyboard-hint">You can also type tone numbers: ni3 → nǐ</div>`}
+function pinyinKeyboard(){const v=state.selectedVowel;return `<label>Need a tone mark? Select a vowel</label><div class="vowel-buttons">${Object.keys(ACCENTS).map(a=>`<button class="${a===v?'chosen':''}" onclick="selectVowel('${a}')" type="button" aria-label="Vowel ${a}">${a}</button>`).join('')}</div><div class="accent-buttons">${ACCENTS[v].map((a,i)=>`<button onclick="insertAccent('${a}','${v}')" type="button" aria-label="Insert tone ${i+1} ${a}">${a}</button>`).join('')}</div><div class="keyboard-hint">Spaces are fine! You can also use tone numbers: xing1 qi1 → xīngqī.</div>`}
 function selectVowel(v){state.selectedVowel=v;const el=document.querySelector('.pinyin-keyboard');if(el)el.innerHTML=pinyinKeyboard();$('pinyin-input')?.focus()}
 function captureCaret(){const el=$('pinyin-input');if(el)state.pinyinCaret=el.selectionStart??el.value.length}
 function insertAccent(mark,v){const el=$('pinyin-input');if(!el)return;const raw=el.value;let pos=Math.min(raw.length,Number.isFinite(state.pinyinCaret)?state.pinyinCaret:raw.length);let replace=-1;for(let i=pos-1;i>=0;i--){if(raw[i].toLowerCase()===v||(v==='ü'&&/^[vü]$/i.test(raw[i]))){replace=i;break}if(/\s/.test(raw[i]))break}if(replace<0&&pos<raw.length&&raw[pos].toLowerCase()===v)replace=pos;
