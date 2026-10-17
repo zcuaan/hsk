@@ -144,7 +144,7 @@ function applySnapshot(data){
 function resetLearner(){
   state.progress={};state.attempts=[];state.flashRatings={};state.xp=0;
   state.route='home';state.loaded=false;state.quiz=null;state.flash=null;
-  state.words=[];state.lessons=[];state.lessonItems=[];state.audio.clear();state.characterRefs.clear();
+  state.words=[];state.allWords=[];state.levelEntries=[];state.selectedLevel=1;state.lessons=[];state.lessonItems=[];state.audio.clear();state.characterRefs.clear();
 }
 async function enterSignedIn(user) {
   if(account.recovery || !user?.id)return;
