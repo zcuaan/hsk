@@ -62,7 +62,7 @@ window.HSK_LISTENING_1=Object.freeze([
     "wrong": [
       "She likes dogs.",
       "She doesn't like cats.",
-      "She doesn't like cats."
+      "She likes cats."
     ],
     "note": "不 negates 喜欢; 狗 means dog."
   },
