@@ -50,6 +50,9 @@
     .header-account{border:0;background:#FFF0E5;color:#B15F2F;border-radius:11px;height:36px;padding:4px 9px;font-size:12px;font-weight:900}
     .account-settings{display:flex;flex-direction:column;gap:10px}.account-settings .btn{margin-top:12px}
     .profile-goal-note{font-size:12px;color:var(--muted);font-weight:750;margin-top:10px}
+      .app-donate{max-width:460px;margin:5px auto 28px;padding:12px 18px;text-align:center;font-size:11px;line-height:1.7;color:#9199A2}
+    .app-donate a{font-weight:800;color:#A85331;text-decoration:underline;text-underline-offset:3px}
+    #app.hidden + .app-donate,body.in-flow .app-donate{display:none}
   </style>
 </head>
 <body>
@@ -59,6 +62,7 @@
 </div></header>
 <section id="auth-root" aria-live="polite"></section>
 <main class="container hidden" id="app" aria-live="polite"><div class="center">Loading vocabulary… 🍊</div></main>
+<footer class="app-donate" aria-label="Support gogochinago"><span>Made with ❤️ and lots of 🍊. Enjoying gogochinago?</span><br><a href="https://buymeacoffee.com/targettuition" target="_blank" rel="noopener noreferrer" aria-label="Buy us a coffee on Buy Me a Coffee (opens in a new tab)">☕ Buy us a coffee</a><span> · Always optional. Always free.</span></footer>
 <div id="modal-root"></div>
 <script>
 'use strict';
