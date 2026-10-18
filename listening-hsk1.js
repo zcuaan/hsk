@@ -46,7 +46,7 @@ window.HSK_LISTENING_1=Object.freeze([
     "answer": "He is a doctor.",
     "wrong": [
       "He is a teacher.",
-      "She is a doctor.",
+      "He is a student.",
       "He is ill."
     ],
     "note": "医生 means doctor; 他 refers to he."
@@ -62,7 +62,7 @@ window.HSK_LISTENING_1=Object.freeze([
     "wrong": [
       "She likes dogs.",
       "She doesn't like cats.",
-      "He doesn't like dogs."
+      "She doesn't like cats."
     ],
     "note": "不 negates 喜欢; 狗 means dog."
   },
@@ -151,7 +151,7 @@ window.HSK_LISTENING_1=Object.freeze([
     "answer": "She can speak Chinese.",
     "wrong": [
       "She cannot speak Chinese.",
-      "He can speak Chinese.",
+      "She can speak English.",
       "She can write Chinese characters."
     ],
     "note": "会 can express a learned ability; 说 means speak."
@@ -196,7 +196,7 @@ window.HSK_LISTENING_1=Object.freeze([
     "answer": "His cat is at home.",
     "wrong": [
       "His dog is at home.",
-      "Her cat is at home.",
+      "His cat is at school.",
       "His cat is outside."
     ],
     "note": "他的 means his; 猫 means cat."
