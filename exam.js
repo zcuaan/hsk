@@ -4,7 +4,11 @@
 'use strict';
 let run=null;
 const escape=s=>escapeHTML(s);
-const banks=()=>({reading:window.HSK_READING_1||[],listening:window.HSK_LISTENING_1||[]});
+// Reserve a fixed, non-overlapping 40-question assessment set.
+const RESERVED_READING=new Set(Array.from({length:20},(_,i)=>'hsk1-r'+String(3*i+1).padStart(3,'0')));
+const RESERVED_LISTENING=new Set(Array.from({length:16},(_,i)=>'hsk1-l'+String(3*i+1).padStart(3,'0')).concat(['hsk1-l002','hsk1-l005','hsk1-l008','hsk1-l011']));
+window.HSK_MOCK_RESERVED={reading:RESERVED_READING,listening:RESERVED_LISTENING};
+const banks=()=>({reading:(window.HSK_READING_1||[]).filter(q=>RESERVED_READING.has(q.id)),listening:(window.HSK_LISTENING_1||[]).filter(q=>RESERVED_LISTENING.has(q.id))});
 const shuffleCopy=a=>shuffle(a.slice());
 const storage=()=>state.attempts.filter(a=>a.type==='mock_exam'&&a.examVersion==='hsk1-v1');
 const percent=(n,d)=>d?Math.round(100*n/d):0;
@@ -19,14 +23,15 @@ function updateClock(){if(!run){stopClock();return}const node=document.getElemen
 function beginClock(){stopClock();clock=setInterval(updateClock,1000)}
 function makeQuestions(){
  const b=banks();
- const reading=shuffleCopy(b.reading.filter(q=>q.stage<=2)).slice(0,15).concat(shuffleCopy(b.reading.filter(q=>q.stage===3)).slice(0,5)).map(q=>({...q,section:'reading'}));
- const listening=shuffleCopy(b.listening.filter(q=>q.stage<=2)).slice(0,15).concat(shuffleCopy(b.listening.filter(q=>q.stage===3)).slice(0,5)).map(q=>({...q,section:'listening'}));
+ if(b.reading.length!==20||b.listening.length!==20)return [];
+ const reading=shuffleCopy(b.reading).map(q=>({...q,section:'reading'}));
+ const listening=shuffleCopy(b.listening).map(q=>({...q,section:'listening'}));
  return [...listening,...reading].map(q=>({...q,options:shuffleCopy([q.answer,...q.wrong])}));
 }
 window.renderExam=function(){
  state.route='exam';run=null;window.stopHSKListening?.();
  const attempts=storage(),last=attempts.at(-1),u=unlock(),available=u.ready&&attempts.length<MAX_MOCKS;
- show(`${notice()}<h1 class="screen-title">📝 HSK 1 Mock Exam</h1><p class="subline">Test your listening and reading in one sitting.</p><div class="white-card"><h3>40 questions · 20 listening + 20 reading</h3><p class="compact-note">An original, HSK-inspired practice test. Questions are drawn from the exercises in this app, so it is <strong>not</strong> an unseen or official HSK exam. A 40-minute practice timer is included, but this is not an official pass prediction.</p><p class="compact-note">Chinese transcripts and correct answers stay hidden until you finish. You can replay the audio.</p>${last?`<p class="compact-note"><strong>Last completed mock:</strong> ${last.score}% · Listening ${last.listeningScore}% · Reading ${last.readingScore}%</p>`:''}<p class="compact-note"><strong>Unlock requirements:</strong> 30 reading sentences and 24 listening prompts attempted, at least 75% latest-answer accuracy in each, and 60 vocabulary skill scores at 60%+ mastery.</p><p class="compact-note">📖 ${u.r}/30 (${u.rAccuracy}%) · 🎧 ${u.l}/24 (${u.lAccuracy}%) · 🧠 ${u.mastered}/60 vocabulary skill scores</p><p class="compact-note">${attempts.length}/${MAX_MOCKS} mock attempts used. ${attempts.length>=MAX_MOCKS?'All mock attempts completed.':available?'Unlocked!':'Keep practising to unlock.'}</p></div><button class="btn btn-primary btn-big" onclick="startExam()" ${available?'':'disabled'}>${attempts.length>=MAX_MOCKS?'MOCK COMPLETED':available?'START MOCK EXAM':'🔒 MOCK LOCKED'}</button><p class="footer-tip">You can leave at any time. Only finished mocks are saved.</p>`);
+ show(`${notice()}<h1 class="screen-title">📝 HSK 1 Mock Exam</h1><p class="subline">Test your listening and reading in one sitting.</p><div class="white-card"><h3>40 questions · 20 listening + 20 reading</h3><p class="compact-note">An original, HSK-inspired practice test. The 40 assessment questions are reserved from everyday practice, but this is <strong>not</strong> an official HSK exam. A 40-minute practice timer is included, but this is not an official pass prediction.</p><p class="compact-note">Chinese transcripts and correct answers stay hidden until you finish. You can replay the audio.</p>${last?`<p class="compact-note"><strong>Last completed mock:</strong> ${last.score}% · Listening ${last.listeningScore}% · Reading ${last.readingScore}%</p>`:''}<p class="compact-note"><strong>Unlock requirements:</strong> 30 reading sentences and 24 listening prompts attempted, at least 75% latest-answer accuracy in each, and 60 vocabulary skill scores at 60%+ mastery.</p><p class="compact-note">📖 ${u.r}/30 (${u.rAccuracy}%) · 🎧 ${u.l}/24 (${u.lAccuracy}%) · 🧠 ${u.mastered}/60 vocabulary skill scores</p><p class="compact-note">${attempts.length}/${MAX_MOCKS} mock attempts used. ${attempts.length>=MAX_MOCKS?'All mock attempts completed.':available?'Unlocked!':'Keep practising to unlock.'}</p></div><button class="btn btn-primary btn-big" onclick="startExam()" ${available?'':'disabled'}>${attempts.length>=MAX_MOCKS?'MOCK COMPLETED':available?'START MOCK EXAM':'🔒 MOCK LOCKED'}</button><p class="footer-tip">You can leave at any time. Only finished mocks are saved.</p>`);
 };
 window.startExam=function(){
  if(!unlock().ready||storage().length>=MAX_MOCKS)return renderExam();
