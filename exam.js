@@ -8,6 +8,9 @@ const banks=()=>({reading:window.HSK_READING_1||[],listening:window.HSK_LISTENIN
 const shuffleCopy=a=>shuffle(a.slice());
 const storage=()=>state.attempts.filter(a=>a.type==='mock_exam'&&a.examVersion==='hsk1-v1');
 const percent=(n,d)=>d?Math.round(100*n/d):0;
+const MAX_MOCKS=2;
+function unlock(){const a=state.attempts,reading=a.filter(x=>x.type==='reading'),listening=a.filter(x=>x.type==='listening_comprehension');const latest=arr=>{const m=new Map();for(const x of arr)m.set(x.readingId||x.listeningId,x);return [...m.values()]};const r=latest(reading),l=latest(listening);const accuracy=items=>items.length?Math.round(100*items.filter(x=>x.result==='correct').length/items.length):0;const vocab=Object.values(state.progress||{}).filter(x=>x&&typeof x.mastery==='number');const mastered=vocab.filter(x=>x.mastery>=60).length;return {r:r.length,l:l.length,rAccuracy:accuracy(r),lAccuracy:accuracy(l),mastered,ready:r.length>=30&&l.length>=24&&accuracy(r)>=75&&accuracy(l)>=75&&mastered>=60}}
+
 const EXAM_MINUTES=40;
 let clock=null;
 function stopClock(){if(clock!==null){clearInterval(clock);clock=null}}
@@ -22,10 +25,11 @@ function makeQuestions(){
 }
 window.renderExam=function(){
  state.route='exam';run=null;window.stopHSKListening?.();
- const attempts=storage(),last=attempts.at(-1);
- show(`${notice()}<h1 class="screen-title">📝 HSK 1 Mock Exam</h1><p class="subline">Test your listening and reading in one sitting.</p><div class="white-card"><h3>40 questions · 20 listening + 20 reading</h3><p class="compact-note">An original, HSK-inspired practice test. Questions are drawn from the exercises in this app, so it is <strong>not</strong> an unseen or official HSK exam. A 40-minute practice timer is included, but this is not an official pass prediction.</p><p class="compact-note">Chinese transcripts and correct answers stay hidden until you finish. You can replay the audio.</p>${last?`<p class="compact-note"><strong>Last completed mock:</strong> ${last.score}% · Listening ${last.listeningScore}% · Reading ${last.readingScore}%</p>`:''}</div><button class="btn btn-primary btn-big" onclick="startExam()">START MOCK EXAM</button><p class="footer-tip">You can leave at any time. Only finished mocks are saved.</p>`);
+ const attempts=storage(),last=attempts.at(-1),u=unlock(),available=u.ready&&attempts.length<MAX_MOCKS;
+ show(`${notice()}<h1 class="screen-title">📝 HSK 1 Mock Exam</h1><p class="subline">Test your listening and reading in one sitting.</p><div class="white-card"><h3>40 questions · 20 listening + 20 reading</h3><p class="compact-note">An original, HSK-inspired practice test. Questions are drawn from the exercises in this app, so it is <strong>not</strong> an unseen or official HSK exam. A 40-minute practice timer is included, but this is not an official pass prediction.</p><p class="compact-note">Chinese transcripts and correct answers stay hidden until you finish. You can replay the audio.</p>${last?`<p class="compact-note"><strong>Last completed mock:</strong> ${last.score}% · Listening ${last.listeningScore}% · Reading ${last.readingScore}%</p>`:''}<p class="compact-note"><strong>Unlock requirements:</strong> 30 reading sentences and 24 listening prompts attempted, at least 75% latest-answer accuracy in each, and 60 vocabulary skill scores at 60%+ mastery.</p><p class="compact-note">📖 ${u.r}/30 (${u.rAccuracy}%) · 🎧 ${u.l}/24 (${u.lAccuracy}%) · 🧠 ${u.mastered}/60 vocabulary skill scores</p><p class="compact-note">${attempts.length}/${MAX_MOCKS} mock attempts used. ${attempts.length>=MAX_MOCKS?'All mock attempts completed.':available?'Unlocked!':'Keep practising to unlock.'}</p></div><button class="btn btn-primary btn-big" onclick="startExam()" ${available?'':'disabled'}>${attempts.length>=MAX_MOCKS?'MOCK COMPLETED':available?'START MOCK EXAM':'🔒 MOCK LOCKED'}</button><p class="footer-tip">You can leave at any time. Only finished mocks are saved.</p>`);
 };
 window.startExam=function(){
+ if(!unlock().ready||storage().length>=MAX_MOCKS)return renderExam();
  if(!window.speechSynthesis||!window.SpeechSynthesisUtterance){show('<div class="notice">This mock needs Mandarin speech playback. Please open it in a browser with speech synthesis support.</div><button class="btn btn-white btn-full" onclick="renderExam()">BACK</button>');return}
  const questions=makeQuestions();if(questions.length!==40)return;
  run={questions,index:0,answers:[],startedAt:new Date().toISOString(),deadline:Date.now()+EXAM_MINUTES*60000,locked:false,playToken:0};state.route='examQuiz';beginClock();draw();
