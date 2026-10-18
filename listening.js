@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 let session=null, playbackToken=0, timer=null;
-const bank=()=>window.HSK_LISTENING_1||[];
+const bank=()=> (window.HSK_LISTENING_1||[]).filter(q=>!window.HSK_MOCK_RESERVED?.listening?.has(q.id));
 const safe=s=>escapeHTML(s);
 function stop(){playbackToken++;if(timer){clearTimeout(timer);timer=null}try{window.speechSynthesis?.cancel()}catch(e){}}
 function history(){return state.attempts.filter(a=>a.type==='listening_comprehension'&&typeof a.listeningId==='string')}
