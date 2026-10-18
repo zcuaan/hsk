@@ -1,0 +1,63 @@
+/* HSK 1 exam-style mock, original questions based on the app's HSK 1 banks.
+   Not an official HSK paper or an official readiness prediction. */
+(function(){
+'use strict';
+let run=null;
+const escape=s=>escapeHTML(s);
+const banks=()=>({reading:window.HSK_READING_1||[],listening:window.HSK_LISTENING_1||[]});
+const shuffleCopy=a=>shuffle(a.slice());
+const storage=()=>state.attempts.filter(a=>a.type==='mock_exam'&&a.examVersion==='hsk1-v1');
+const percent=(n,d)=>d?Math.round(100*n/d):0;
+function makeQuestions(){
+ const b=banks();
+ const reading=shuffleCopy(b.reading.filter(q=>q.stage<=2)).slice(0,15).concat(shuffleCopy(b.reading.filter(q=>q.stage===3)).slice(0,5)).map(q=>({...q,section:'reading'}));
+ const listening=shuffleCopy(b.listening.filter(q=>q.stage<=2)).slice(0,15).concat(shuffleCopy(b.listening.filter(q=>q.stage===3)).slice(0,5)).map(q=>({...q,section:'listening'}));
+ return [...listening,...reading].map(q=>({...q,options:shuffleCopy([q.answer,...q.wrong])}));
+}
+window.renderExam=function(){
+ state.route='exam';run=null;window.stopHSKListening?.();
+ const attempts=storage(),last=attempts.at(-1);
+ show(`${notice()}<h1 class="screen-title">📝 HSK 1 Mock Exam</h1><p class="subline">Test your listening and reading in one sitting.</p><div class="white-card"><h3>40 questions · 20 listening + 20 reading</h3><p class="compact-note">An original, HSK-inspired practice test. Questions are drawn from the exercises in this app, so it is <strong>not</strong> an unseen or official HSK exam. No timer or official pass prediction.</p><p class="compact-note">Chinese transcripts and correct answers stay hidden until you finish. You can replay the audio.</p>${last?`<p class="compact-note"><strong>Last completed mock:</strong> ${last.score}% · Listening ${last.listeningScore}% · Reading ${last.readingScore}%</p>`:''}</div><button class="btn btn-primary btn-big" onclick="startExam()">START MOCK EXAM</button><p class="footer-tip">You can leave at any time. Only finished mocks are saved.</p>`);
+};
+window.startExam=function(){
+ if(!window.speechSynthesis||!window.SpeechSynthesisUtterance){show('<div class="notice">This mock needs Mandarin speech playback. Please open it in a browser with speech synthesis support.</div><button class="btn btn-white btn-full" onclick="renderExam()">BACK</button>');return}
+ const questions=makeQuestions();if(questions.length!==40)return;
+ run={questions,index:0,answers:[],startedAt:new Date().toISOString(),locked:false};state.route='examQuiz';draw();
+};
+function speak(q,slow){
+ window.stopHSKListening?.();
+ if(!window.speechSynthesis||!window.SpeechSynthesisUtterance)return;
+ const voices=window.speechSynthesis.getVoices?.()||[],v=voices.find(x=>/^zh[-_]CN/i.test(x.lang))||voices.find(x=>/^zh/i.test(x.lang));
+ const parts=q.parts||[],token=++run.playToken;
+ function next(i){if(!run||run.playToken!==token||i>=parts.length)return;
+ const utterance=new SpeechSynthesisUtterance(parts[i]);utterance.lang='zh-CN';utterance.rate=slow?.68:.84;if(v)utterance.voice=v;
+ utterance.onend=()=>{if(run&&run.playToken===token)next(i+1)};window.speechSynthesis.speak(utterance)}
+ window.speechSynthesis.cancel();next(0);
+}
+window.playExam=function(slow=false){if(run&&run.questions[run.index]?.section==='listening')speak(run.questions[run.index],slow)};
+function draw(){
+ if(!run)return renderExam();
+ if(run.index===run.questions.length)return finish();
+ const q=run.questions[run.index],n=run.index+1,pct=percent(run.index,run.questions.length),audio=q.section==='listening';
+ const prompt=audio?`<div style="font-size:54px">🎧</div><button class="audio-button" onclick="playExam()">🔊 Play audio</button><button class="small-link" onclick="playExam(true)">🐢 Play slowly</button><p class="compact-note">Listen before answering. The transcript is hidden.</p>`:`<div class="hanzi" style="font-size:34px;line-height:1.5">${escape(q.hanzi)}</div>`;
+ show(`<div class="quiz-wrap"><div class="quiz-top"><button class="quit-button" onclick="leaveExam()" aria-label="Exit mock exam">×</button><div class="track"><span style="width:${pct}%"></span></div></div><div class="question-num">MOCK EXAM · ${audio?'🎧 LISTENING':'📖 READING'} · ${n} / 40</div><div class="question-label">${escape(audio?q.question:'What does this sentence mean?')}</div><div class="question-target" style="min-height:170px">${prompt}</div><div class="answer-options">${q.options.map((o,i)=>`<button class="answer-option" onclick="answerExam(${i})"><span class="letter">${i+1}</span><span style="font-size:15px;font-weight:800">${escape(o)}</span></button>`).join('')}</div><div class="question-exit"><button onclick="answerExam(-1)">SKIP QUESTION</button></div></div>`);
+}
+window.answerExam=function(i){
+ if(!run||run.locked)return;
+ run.locked=true;const q=run.questions[run.index];
+ if(q.section==='listening'){run.playToken=(run.playToken||0)+1;window.speechSynthesis?.cancel()}
+ run.answers.push({id:q.id,section:q.section,correct:i>=0&&q.options[i]===q.answer,skipped:i<0,chosen:i>=0?q.options[i]:null});
+ run.index++;run.locked=false;draw();
+};
+window.leaveExam=function(){if(run){run.playToken=(run.playToken||0)+1;window.speechSynthesis?.cancel()}run=null;renderExam()};
+function finish(){
+ if(!run)return;
+ const a=run.answers,l=a.filter(x=>x.section==='listening'),r=a.filter(x=>x.section==='reading');
+ const ls=percent(l.filter(x=>x.correct).length,20),rs=percent(r.filter(x=>x.correct).length,20),score=percent(a.filter(x=>x.correct).length,40);
+ state.attempts.push({type:'mock_exam',skill:'mock_exam',examVersion:'hsk1-v1',result:'complete',score,listeningScore:ls,readingScore:rs,at:new Date().toISOString()});
+ saveSaved();
+ const missed=run.questions.filter(q=>!a.find(x=>x.id===q.id&&x.correct));
+ run=null;state.route='examResult';
+ show(`<div class="feedback"><span class="feedback-emoji">📝</span><h1>Mock complete!</h1><div class="score-card"><p>YOUR PRACTICE SCORE</p><strong>${score}%</strong><p>${a.filter(x=>x.correct).length} of 40 correct</p><div class="track"><span style="width:${score}%"></span></div></div><div class="white-card"><h3>🎧 Listening: ${ls}%</h3><h3>📖 Reading: ${rs}%</h3><p class="compact-note">These are practice scores, not an official HSK pass prediction.</p></div><h3>Review ${missed.length} missed questions</h3>${missed.slice(0,20).map(q=>`<div class="white-card" style="margin:10px 0;text-align:left"><strong>${q.section==='listening'?'🎧':'📖'} ${escape(q.parts?q.parts.join(' / '):q.hanzi)}</strong><p>${escape(q.answer)}</p><p class="compact-note">${escape(q.note)}</p></div>`).join('')}<button class="btn btn-primary btn-big" onclick="renderExam()">BACK TO MOCK EXAMS</button></div>`);
+}
+})();
