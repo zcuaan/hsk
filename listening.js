@@ -41,12 +41,12 @@ window.playListening=function(slow=false){
  stop();const q=session.questions[session.index],token=playbackToken;
  session.plays++;
  const hint=document.getElementById('listen-audio-status');
- if(hint)hint.textContent=slow?'Playing slowly…':'Playing…';
- const parts=slow?q.parts.flatMap(p=>p.split(/(?<=[，。！？、])/u).filter(Boolean)):q.parts,rate=slow?.48:.94;
+ if(hint)hint.textContent=slow?'Playing slowly with pauses…':'Playing…';
+ const parts=slow?q.parts.flatMap(p=>window.hskSlowSpeechChunks?.(p)||[p]):q.parts,rate=slow?.5:.94;
  const next=i=>{
   if(token!==playbackToken)return;
   if(i>=parts.length){const label=document.getElementById('listen-audio-status');if(label)label.textContent='Finished · Tap to replay';return}
-  speech(parts[i],rate,token,()=>{if(i+1<parts.length)timer=setTimeout(()=>next(i+1),550);else next(i+1)});
+  speech(parts[i],rate,token,()=>{if(i+1<parts.length)timer=setTimeout(()=>next(i+1),slow?850:550);else next(i+1)});
  };
  next(0);
 };
