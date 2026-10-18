@@ -42,7 +42,7 @@ window.playListening=function(slow=false){
  session.plays++;
  const hint=document.getElementById('listen-audio-status');
  if(hint)hint.textContent=slow?'Playing slowly…':'Playing…';
- const parts=q.parts,rate=slow?.67:.84;
+ const parts=slow?q.parts.flatMap(p=>p.split(/(?<=[，。！？、])/u).filter(Boolean)):q.parts,rate=slow?.48:.94;
  const next=i=>{
   if(token!==playbackToken)return;
   if(i>=parts.length){const label=document.getElementById('listen-audio-status');if(label)label.textContent='Finished · Tap to replay';return}
