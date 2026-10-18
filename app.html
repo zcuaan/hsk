@@ -257,10 +257,21 @@ function choosePracticeWords(pool,count){
 }
 const TYPES=['meaning','recognition','pinyin','from_pinyin','listening','listening_meaning','typed_pinyin'];
 const AUDIO_TYPES=['listening','listening_meaning'];
+function spokenReadings(w){
+ // Preserve tones; strip only spelling differences such as spaces.
+ return String(w.pinyin||'').split(/[\/;]/).map(s=>s.toLowerCase().normalize('NFC').replace(/[\s'’\-]/g,'')).filter(Boolean);
+}
+function sharesSpokenReading(w,x){
+ const readings=new Set(spokenReadings(w));
+ return spokenReadings(x).some(py=>readings.has(py));
+}
 function typesFor(w){
- const ambiguous=state.words.filter(x=>x.simplified===w.simplified).length>1;
- // Identical Hanzi with distinct meanings need context; audio alone cannot disambiguate.
- return ambiguous?TYPES.filter(t=>['recognition','from_pinyin'].includes(t)):TYPES;
+ const sameWriting=state.words.some(x=>x.id!==w.id&&x.simplified===w.simplified);
+ const sameSpeech=state.words.some(x=>x.id!==w.id&&sharesSpokenReading(w,x));
+ // A recording of tā cannot identify 他, 她, or 它.
+ // Don't create context-free audio or Pinyin->Hanzi questions about homophones.
+ if(sameWriting)return ['recognition'];
+ return TYPES.filter(t=>!sameSpeech||!['listening','listening_meaning','from_pinyin'].includes(t));
 }
 function choosePracticeType(w,requireAudio=false){
  const available=typesFor(w);
@@ -292,7 +303,8 @@ function buildOptions(w,type){
  const candidates=shuffle(state.words.filter(x=>
   x.id!==w.id && x.simplified!==w.simplified &&
   getText(x).toLowerCase()!==correct.toLowerCase() &&
-  (type!=='pinyin'||normalizePy(getText(x))!==normalizePy(correct))
+  (type!=='pinyin'||normalizePy(getText(x))!==normalizePy(correct)) &&
+  (!['listening','listening_meaning','from_pinyin'].includes(type)||!sharesSpokenReading(w,x))
  )).map(x=>{
   const answer=getText(x), lengthGap=Math.abs([...x.simplified].length-targetLen);
   let score=lengthGap===0?120:lengthGap===1?30:-20*lengthGap;
@@ -366,6 +378,7 @@ function replayStrokes(){state.writer?.animateCharacter()}
 function playAudio(wordId){const w=currentWord(wordId);if(!w)return;const url=state.audio.get(w.id);const speak=()=>{if(!window.speechSynthesis)return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(w.simplified);u.lang='zh-CN';u.rate=.82;window.speechSynthesis.speak(u)};if(url){const a=new Audio(url);a.play().catch(speak)}else{speak()}}
 document.addEventListener('click',e=>{if(!e.target.closest('.level-control'))closeLevel()});document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeLevel();closeModal()}});
 </script>
+<script src="language-support.js"></script>
 <script src="reading-hsk1.js"></script>
 <script src="reading.js"></script>
 <script src="listening-hsk1.js"></script>
