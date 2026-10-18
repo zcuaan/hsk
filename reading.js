@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 let session=null;
-const bank=()=>window.HSK_READING_1||[];
+const bank=()=> (window.HSK_READING_1||[]).filter(q=>!window.HSK_MOCK_RESERVED?.reading?.has(q.id));
 const stats=(stage)=>{const qs=bank().filter(q=>stage==null||q.stage===stage), ids=new Set(qs.map(q=>q.id)),last=new Map();for(const a of state.attempts)if(a.type==='reading'&&ids.has(a.readingId))last.set(a.readingId,a);const hits=[...last.values()].filter(a=>a.result==='correct').length;return {total:qs.length,attempted:last.size,correct:hits,pct:qs.length?Math.round(100*hits/qs.length):0}};
 window.renderReading=function(){
  state.route='reading';session=null;
