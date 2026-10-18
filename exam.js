@@ -45,7 +45,7 @@ function speak(q,slow){
  const voices=window.speechSynthesis.getVoices?.()||[],v=voices.find(x=>/^zh[-_]CN/i.test(x.lang))||voices.find(x=>/^zh/i.test(x.lang));
  const parts=q.parts||[],token=(run.playToken=(run.playToken||0)+1);
  function next(i){if(!run||run.playToken!==token||i>=parts.length)return;
- const utterance=new SpeechSynthesisUtterance(parts[i]);utterance.lang='zh-CN';utterance.rate=slow?.68:.84;if(v)utterance.voice=v;
+ const utterance=new SpeechSynthesisUtterance(parts[i]);utterance.lang='zh-CN';utterance.rate=slow?.48:.94;if(v)utterance.voice=v;
  utterance.onend=()=>{if(run&&run.playToken===token)next(i+1)};window.speechSynthesis.speak(utterance)}
  window.speechSynthesis.cancel();next(0);
 }
