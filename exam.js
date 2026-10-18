@@ -43,10 +43,10 @@ function speak(q,slow){
  window.stopHSKListening?.();
  if(!window.speechSynthesis||!window.SpeechSynthesisUtterance)return;
  const voices=window.speechSynthesis.getVoices?.()||[],v=voices.find(x=>/^zh[-_]CN/i.test(x.lang))||voices.find(x=>/^zh/i.test(x.lang));
- const parts=q.parts||[],token=(run.playToken=(run.playToken||0)+1);
+ const parts=slow?(q.parts||[]).flatMap(p=>window.hskSlowSpeechChunks?.(p)||[p]):q.parts||[],token=(run.playToken=(run.playToken||0)+1);
  function next(i){if(!run||run.playToken!==token||i>=parts.length)return;
  const utterance=new SpeechSynthesisUtterance(parts[i]);utterance.lang='zh-CN';utterance.rate=slow?.48:.94;if(v)utterance.voice=v;
- utterance.onend=()=>{if(run&&run.playToken===token)next(i+1)};window.speechSynthesis.speak(utterance)}
+ utterance.onend=()=>{if(run&&run.playToken===token){if(slow&&i+1<parts.length)setTimeout(()=>{if(run&&run.playToken===token)next(i+1)},850);else next(i+1)}};window.speechSynthesis.speak(utterance)}
  window.speechSynthesis.cancel();next(0);
 }
 window.playExam=function(slow=false){if(run&&run.questions[run.index]?.section==='listening')speak(run.questions[run.index],slow)};
