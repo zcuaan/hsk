@@ -8,6 +8,12 @@ const banks=()=>({reading:window.HSK_READING_1||[],listening:window.HSK_LISTENIN
 const shuffleCopy=a=>shuffle(a.slice());
 const storage=()=>state.attempts.filter(a=>a.type==='mock_exam'&&a.examVersion==='hsk1-v1');
 const percent=(n,d)=>d?Math.round(100*n/d):0;
+const EXAM_MINUTES=40;
+let clock=null;
+function stopClock(){if(clock!==null){clearInterval(clock);clock=null}}
+function timeLeft(){if(!run)return '40:00';const sec=Math.max(0,Math.ceil((run.deadline-Date.now())/1000));return String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0')}
+function updateClock(){if(!run){stopClock();return}const node=document.getElementById('exam-clock');if(node)node.textContent=timeLeft();if(Date.now()>=run.deadline){stopClock();finish()}}
+function beginClock(){stopClock();clock=setInterval(updateClock,1000)}
 function makeQuestions(){
  const b=banks();
  const reading=shuffleCopy(b.reading.filter(q=>q.stage<=2)).slice(0,15).concat(shuffleCopy(b.reading.filter(q=>q.stage===3)).slice(0,5)).map(q=>({...q,section:'reading'}));
@@ -17,12 +23,12 @@ function makeQuestions(){
 window.renderExam=function(){
  state.route='exam';run=null;window.stopHSKListening?.();
  const attempts=storage(),last=attempts.at(-1);
- show(`${notice()}<h1 class="screen-title">📝 HSK 1 Mock Exam</h1><p class="subline">Test your listening and reading in one sitting.</p><div class="white-card"><h3>40 questions · 20 listening + 20 reading</h3><p class="compact-note">An original, HSK-inspired practice test. Questions are drawn from the exercises in this app, so it is <strong>not</strong> an unseen or official HSK exam. No timer or official pass prediction.</p><p class="compact-note">Chinese transcripts and correct answers stay hidden until you finish. You can replay the audio.</p>${last?`<p class="compact-note"><strong>Last completed mock:</strong> ${last.score}% · Listening ${last.listeningScore}% · Reading ${last.readingScore}%</p>`:''}</div><button class="btn btn-primary btn-big" onclick="startExam()">START MOCK EXAM</button><p class="footer-tip">You can leave at any time. Only finished mocks are saved.</p>`);
+ show(`${notice()}<h1 class="screen-title">📝 HSK 1 Mock Exam</h1><p class="subline">Test your listening and reading in one sitting.</p><div class="white-card"><h3>40 questions · 20 listening + 20 reading</h3><p class="compact-note">An original, HSK-inspired practice test. Questions are drawn from the exercises in this app, so it is <strong>not</strong> an unseen or official HSK exam. A 40-minute practice timer is included, but this is not an official pass prediction.</p><p class="compact-note">Chinese transcripts and correct answers stay hidden until you finish. You can replay the audio.</p>${last?`<p class="compact-note"><strong>Last completed mock:</strong> ${last.score}% · Listening ${last.listeningScore}% · Reading ${last.readingScore}%</p>`:''}</div><button class="btn btn-primary btn-big" onclick="startExam()">START MOCK EXAM</button><p class="footer-tip">You can leave at any time. Only finished mocks are saved.</p>`);
 };
 window.startExam=function(){
  if(!window.speechSynthesis||!window.SpeechSynthesisUtterance){show('<div class="notice">This mock needs Mandarin speech playback. Please open it in a browser with speech synthesis support.</div><button class="btn btn-white btn-full" onclick="renderExam()">BACK</button>');return}
  const questions=makeQuestions();if(questions.length!==40)return;
- run={questions,index:0,answers:[],startedAt:new Date().toISOString(),locked:false};state.route='examQuiz';draw();
+ run={questions,index:0,answers:[],startedAt:new Date().toISOString(),deadline:Date.now()+EXAM_MINUTES*60000,locked:false,playToken:0};state.route='examQuiz';beginClock();draw();
 };
 function speak(q,slow){
  window.stopHSKListening?.();
@@ -38,20 +44,24 @@ window.playExam=function(slow=false){if(run&&run.questions[run.index]?.section==
 function draw(){
  if(!run)return renderExam();
  if(run.index===run.questions.length)return finish();
+ if(Date.now()>=run.deadline)return finish();
  const q=run.questions[run.index],n=run.index+1,pct=percent(run.index,run.questions.length),audio=q.section==='listening';
  const prompt=audio?`<div style="font-size:54px">🎧</div><button class="audio-button" onclick="playExam()">🔊 Play audio</button><button class="small-link" onclick="playExam(true)">🐢 Play slowly</button><p class="compact-note">Listen before answering. The transcript is hidden.</p>`:`<div class="hanzi" style="font-size:34px;line-height:1.5">${escape(q.hanzi)}</div>`;
- show(`<div class="quiz-wrap"><div class="quiz-top"><button class="quit-button" onclick="leaveExam()" aria-label="Exit mock exam">×</button><div class="track"><span style="width:${pct}%"></span></div></div><div class="question-num">MOCK EXAM · ${audio?'🎧 LISTENING':'📖 READING'} · ${n} / 40</div><div class="question-label">${escape(audio?q.question:'What does this sentence mean?')}</div><div class="question-target" style="min-height:170px">${prompt}</div><div class="answer-options">${q.options.map((o,i)=>`<button class="answer-option" onclick="answerExam(${i})"><span class="letter">${i+1}</span><span style="font-size:15px;font-weight:800">${escape(o)}</span></button>`).join('')}</div><div class="question-exit"><button onclick="answerExam(-1)">SKIP QUESTION</button></div></div>`);
+ show(`<div class="quiz-wrap"><div class="quiz-top"><button class="quit-button" onclick="leaveExam()" aria-label="Exit mock exam">×</button><div class="track"><span style="width:${pct}%"></span></div></div><div class="question-num">MOCK EXAM · ${audio?'🎧 LISTENING':'📖 READING'} · ${n} / 40 · <span id="exam-clock">${timeLeft()}</span> remaining</div><div class="question-label">${escape(audio?q.question:'What does this sentence mean?')}</div><div class="question-target" style="min-height:170px">${prompt}</div><div class="answer-options">${q.options.map((o,i)=>`<button class="answer-option" onclick="answerExam(${i})"><span class="letter">${i+1}</span><span style="font-size:15px;font-weight:800">${escape(o)}</span></button>`).join('')}</div><div class="question-exit"><button onclick="answerExam(-1)">SKIP QUESTION</button></div></div>`);
 }
 window.answerExam=function(i){
  if(!run||run.locked)return;
+ if(Date.now()>=run.deadline){finish();return}
  run.locked=true;const q=run.questions[run.index];
  if(q.section==='listening'){run.playToken=(run.playToken||0)+1;window.speechSynthesis?.cancel()}
  run.answers.push({id:q.id,section:q.section,correct:i>=0&&q.options[i]===q.answer,skipped:i<0,chosen:i>=0?q.options[i]:null});
  run.index++;run.locked=false;draw();
 };
-window.leaveExam=function(){if(run){run.playToken=(run.playToken||0)+1;window.speechSynthesis?.cancel()}run=null;renderExam()};
+window.leaveExam=function(){stopClock();if(run){run.playToken=(run.playToken||0)+1;window.speechSynthesis?.cancel()}run=null;renderExam()};
 function finish(){
  if(!run)return;
+ stopClock();run.playToken++;window.speechSynthesis?.cancel();
+ while(run.answers.length<run.questions.length){const q=run.questions[run.answers.length];run.answers.push({id:q.id,section:q.section,correct:false,skipped:true,chosen:null})}
  const a=run.answers,l=a.filter(x=>x.section==='listening'),r=a.filter(x=>x.section==='reading');
  const ls=percent(l.filter(x=>x.correct).length,20),rs=percent(r.filter(x=>x.correct).length,20),score=percent(a.filter(x=>x.correct).length,40);
  state.attempts.push({type:'mock_exam',skill:'mock_exam',examVersion:'hsk1-v1',result:'complete',score,listeningScore:ls,readingScore:rs,at:new Date().toISOString()});
