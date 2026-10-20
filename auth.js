@@ -47,8 +47,8 @@ function switchToAuth(mode) {
     const name = String(account.user?.user_metadata?.display_name || '').slice(0,60);
     form = '<form id="account-auth-form" class="auth-form"><label for="setup-name">What should we call you? (optional)</label><input id="setup-name" class="auth-input" maxlength="60" autocomplete="nickname" value="' + escapeHTML(name) + '" placeholder="Your name">' +
       '<label for="setup-level">Your target HSK level</label><select id="setup-level" class="auth-input">' +
-      Array.from({length:9},(_,i)=>'<option value="'+(i+1)+'">HSK '+(i+1)+(i===0?' · Available now':' · Future content')+'</option>').join('') +
-      '</select><p class="auth-help">Only HSK 1 vocabulary is available so far. You can set any long-term target.</p>' +
+      Array.from({length:9},(_,i)=>'<option value="'+(i+1)+'">HSK '+(i+1)+(i<3?' · Vocabulary available':' · Future content')+'</option>').join('') +
+      '</select><p class="auth-help">HSK 1–3 vocabulary is available. Reading, listening and mock exams are currently HSK 1 only.</p>' +
       '<label for="setup-daily">Daily practice goal</label><select id="setup-daily" class="auth-input">' +
       [5,10,15,20,30].map(n=>'<option value="'+n+'"'+(n===10?' selected':'')+'>'+n+' questions per day</option>').join('') +
       '</select>' +
@@ -265,8 +265,8 @@ function accountView(){
     '<h1 class="screen-title">Your account 🍊</h1><p class="subline">'+escapeHTML(account.user.email||'')+'</p>'+
     '<form class="white-card account-settings" id="settings-form">'+
     '<label for="account-name">Name</label><input class="auth-input" id="account-name" maxlength="60" value="'+escapeHTML(p.display_name||'')+'">'+
-    '<label for="account-target">HSK target</label><select class="auth-input" id="account-target">'+Array.from({length:9},(_,i)=>'<option value="'+(i+1)+'"'+(p.target_level===i+1?' selected':'')+'>HSK '+(i+1)+(i?' (coming soon)':'')+'</option>').join('')+'</select>'+
-    '<p class="auth-help">Currently practising HSK 1 vocabulary; more levels are coming.</p>'+
+    '<label for="account-target">HSK target</label><select class="auth-input" id="account-target">'+Array.from({length:9},(_,i)=>'<option value="'+(i+1)+'"'+(p.target_level===i+1?' selected':'')+'>HSK '+(i+1)+(i>=3?' (coming soon)':'')+'</option>').join('')+'</select>'+
+    '<p class="auth-help">HSK 1–3 vocabulary is available. Reading, listening and mock exams currently cover HSK 1.</p>'+
     '<label for="account-daily">Daily question goal</label><select class="auth-input" id="account-daily">'+[5,10,15,20,30].map(n=>'<option value="'+n+'"'+(p.daily_goal_questions===n?' selected':'')+'>'+n+' questions</option>').join('')+'</select>'+
     '<button class="btn btn-primary btn-full" type="submit">SAVE GOALS</button><p id="profile-message" role="status" class="auth-message"></p></form>'+
     '<div class="white-card"><p class="compact-note" id="cloud-sync-status">'+escapeHTML(account.saveStatus||'☁️ Progress saved to your account')+'</p>'+
